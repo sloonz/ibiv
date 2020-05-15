@@ -7,6 +7,7 @@ import execa from "execa";
 import yargs from "yargs";
 import pick from "lodash/pick";
 import max from "lodash/max";
+import uniq from "lodash/uniq";
 
 import { promisify } from "util";
 import fs from "fs";
@@ -77,8 +78,8 @@ export default function(defaultConfig: string) {
       let magickInputStream: NodeJS.ReadableStream | "ignore" = "ignore";
       if(file.type && file.type.match(/^video\//)) {
         const { stdout } = await execa("ffprobe", ["-loglevel", "error", "-skip_frame", "nokey", "-select_streams", "v:0", "-show_entries", "packet=pts,flags", "-of", "csv=p=0", file.filename]);
-        const pts = stdout.split("\n").filter(p => p.match(/^\d+,K/)).map(p => parseInt(p.split(",")[0]));
-        const targetPts = Math.max(0, Math.floor(max(pts)!/10));
+        const pts = uniq([0, ...stdout.split("\n").filter(p => p.match(/^\d+,K/)).map(p => parseInt(p.split(",")[0]))]);
+        const targetPts = pts.length <= 2 ? pts[0] : (pts.length <= 3 ? pts[1] : pts[Math.floor((pts.length-1)/3)]);
         const ffmpegCp = child_process.spawn('ffmpeg',
           ["-loglevel", "error", "-skip_frame", "nokey", "-i", file.filename, "-an", "-vsync", "0", "-vf", `select=gte(pts\\,${targetPts})`, "-frames", "1", "-f", "image2pipe", "-vcodec", "png", "-"],
           { stdio: ["ignore", "pipe", "inherit"] });
