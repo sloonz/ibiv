@@ -1,6 +1,13 @@
 import React from "react";
+import ReactDOM from "react-dom";
 import range from "lodash/range";
-import type execa from "execa";
+
+interface ExecResult {
+  exitCode: number;
+  failed: boolean;
+  stdout: string;
+  stderr: string;
+}
 
 interface Item {
   filename: string;
@@ -186,7 +193,7 @@ class Controller {
     }
   }
 
-  async shellExec(cmd: string | string[]): Promise<execa.ExecaReturnBase<string>> {
+  async shellExec(cmd: string | string[]): Promise<ExecResult> {
     const res = await fetch("/exec", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -353,3 +360,5 @@ export default class UI extends React.Component<{}, UIState> {
     </div>;
   }
 }
+
+document.addEventListener("DOMContentLoaded", () => ReactDOM.render(<UI/>, document.querySelector("#app")));
