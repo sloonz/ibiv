@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/gabriel-vasile/mimetype"
 	flag "github.com/spf13/pflag"
 	"io"
 	"io/fs"
@@ -95,13 +94,21 @@ func main() {
 
 	images := make([]Image, 0, len(flag.Args()))
 	for _, filename := range flag.Args() {
-		mime, err := mimetype.DetectFile(filename)
+		f, err := os.Open(filename)
 		if err != nil {
-			log.Fatalf("%s: cannot detect image type: %v", filename, err)
+			log.Fatal("cannot open %s: %v", filename, err)
 		}
+		defer f.Close()
+
+		hdr := make([]byte, 512)
+		n, err := io.ReadAtLeast(f, hdr, len(hdr))
+		if err != nil && err != io.ErrUnexpectedEOF {
+			log.Fatal("cannot read %s header: %v", filename, err)
+		}
+
 		images = append(images, Image{
 			Filename: filename,
-			Type:     mime.String(),
+			Type:     http.DetectContentType(hdr[:n]),
 		})
 	}
 
