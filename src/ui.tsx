@@ -197,7 +197,7 @@ class Controller {
     const res = await fetch("/exec", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cmd }),
+      body: JSON.stringify({ cmd: Array.isArray(cmd) ? cmd : ["/bin/sh", "-c", cmd] }),
     });
     return res.json();
   }
