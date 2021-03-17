@@ -191,7 +191,7 @@ func main() {
 
 		var magickInput io.Reader
 		magickInputFile := "-"
-		if strings.HasPrefix(images[idx].Type, "video/") {
+		if strings.HasPrefix(images[idx].Type, "video/") || images[idx].Type == "image/gif" {
 			probeCmd := exec.Command("ffprobe", "-loglevel", "error", "-skip_frame", "nokey", "-select_streams", "v:0", "-show_entries", "packet=pts,flags", "-of", "csv=p=0", imagePath)
 			probeCmd.Stderr = os.Stderr
 			out, err := probeCmd.Output()
