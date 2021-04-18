@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "es2019",
     "module": "commonjs",
-    "lib": ["es6", "es2019.object", "es2019.array", "dom"],
+    "lib": ["esnext", "dom"],
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -13,6 +13,7 @@
     "alwaysStrict": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
+    "noEmit": true,
     "jsx": "react"
   }
 }
