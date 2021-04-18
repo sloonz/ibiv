@@ -96,14 +96,14 @@ func main() {
 	for _, filename := range flag.Args() {
 		f, err := os.Open(filename)
 		if err != nil {
-			log.Fatal("cannot open %s: %v", filename, err)
+			log.Fatalf("cannot open %s: %v", filename, err)
 		}
 		defer f.Close()
 
 		hdr := make([]byte, 512)
 		n, err := io.ReadAtLeast(f, hdr, len(hdr))
 		if err != nil && err != io.ErrUnexpectedEOF {
-			log.Fatal("cannot read %s header: %v", filename, err)
+			log.Fatalf("cannot read %s header: %v", filename, err)
 		}
 
 		images = append(images, Image{
