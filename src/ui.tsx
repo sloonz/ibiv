@@ -47,7 +47,7 @@ class Tile extends React.Component<TileProps, TileState> {
   render() {
     const { cols, rows, items } = this.props;
     const { firstItem, activeCol, activeRow } = this.state;
-    const thumbUrl = (idx: number) => `/thumbnails/${idx}/${encodeURIComponent(items[idx].filename)}`;
+    const thumbUrl = (idx: number) => `/thumbnails/${idx}`;
     const makeRow = (row: number) => {
       const id = `r-${firstItem+row*cols}-to-${firstItem+(row+1)*cols-1}`;
       return <div key={id} id={id} className="row">{range(cols).map(col => makeItem(row, col))}</div>;
@@ -341,7 +341,7 @@ export default class UI extends React.Component<{}, UIState> {
   render() {
     const { items, selectedItem } = this.state;
     const itemType = items[selectedItem]?.type;
-    const itemUrl = `/images/${selectedItem}/${encodeURIComponent(items[selectedItem]?.filename)}`;
+    const itemUrl = `/images/${selectedItem}`;
     const isVideo = itemType && !!itemType.match(/^video\//);
     return <div style={{height: "100%"}}>
       <div style={{height: this.state.height-20}} id="main-view">
