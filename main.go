@@ -106,9 +106,23 @@ func main() {
 			log.Fatalf("cannot read %s header: %v", filename, err)
 		}
 
+		typ := http.DetectContentType(hdr[:n])
+		if typ == "application/octet-stream" && bytes.Compare(hdr[4:8], []byte("ftyp")) == 0 {
+			// Most likely video/mp4 but unfortunately the spec (exactly implemented by DetectContentType)
+			// is more strict in what it considers video/mp4 than what most browsers do, and there’s a decent
+			// chunk of mp4 videos detected by the browsers but not by DetectContentType out there.
+			//
+			// The standard says that video/mp4 is only allowed if the brand is "mp4", but Firefox accepts way more brands:
+			// https://github.com/mozilla/gecko-dev/blob/master/toolkit/components/mediasniffer/nsMediaSniffer.cpp
+			//
+			// For Chrome, any MPEG-4 ISO Base Media file is video/mp4 and ignores the brand altogether:
+			// https://github.com/chromium/chromium/blob/master/net/base/mime_sniffer.cc
+			typ = "video/mp4"
+		}
+
 		images = append(images, Image{
 			Filename: filename,
-			Type:     http.DetectContentType(hdr[:n]),
+			Type:     typ,
 		})
 	}
 
