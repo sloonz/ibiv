@@ -17,8 +17,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -76,7 +74,6 @@ func checkToken(token string, h http.Handler) http.Handler {
 }
 
 func main() {
-	ptsRe := regexp.MustCompile("(\\d+),K")
 	useDefaultsP := flag.Bool("defaults", true, "use default configuration")
 	configFilesP := flag.StringArrayP("config", "c", nil, "configuration files")
 	autoLaunchP := flag.Bool("auto-launch", true, "start browser automatically")
@@ -206,38 +203,19 @@ func main() {
 		var magickInput io.Reader
 		magickInputFile := "-"
 		if strings.HasPrefix(images[idx].Type, "video/") || images[idx].Type == "image/gif" {
-			probeCmd := exec.Command("ffprobe", "-loglevel", "error", "-skip_frame", "nokey", "-select_streams", "v:0", "-show_entries", "packet=pts,flags", "-of", "csv=p=0", imagePath)
+			probeCmd := exec.Command("ffprobe", "-loglevel", "error", "-select_streams", "v:0", "-of", "csv=p=0", "-show_entries", "format=duration", imagePath)
 			probeCmd.Stderr = os.Stderr
 			out, err := probeCmd.Output()
 			if writeError(w, err) {
 				return
 			}
 
-			allPts := make([]int, 0)
-			for _, m := range ptsRe.FindAllStringSubmatch(string(out), -1) {
-				pts, err := strconv.Atoi(m[1])
-				if writeError(w, err) {
-					return
-				}
-				allPts = append(allPts, pts)
-			}
-			sort.Ints(allPts)
-
-			uniquePts := make([]int, 0, len(allPts))
-			for i, pts := range allPts {
-				if i == 0 || pts != uniquePts[len(uniquePts)-1] {
-					uniquePts = append(uniquePts, pts)
-				}
+			duration, err := strconv.ParseFloat(strings.TrimSpace(string(out)), 32)
+			if writeError(w, err) {
+				return
 			}
 
-			targetPts := uniquePts[0]
-			if len(uniquePts) == 3 {
-				targetPts = uniquePts[1]
-			} else if len(uniquePts) > 3 {
-				targetPts = uniquePts[(len(uniquePts)-1)/3]
-			}
-
-			ffmpegCmd := exec.Command("ffmpeg", "-loglevel", "error", "-skip_frame", "nokey", "-i", imagePath, "-an", "-vsync", "0", "-vf", fmt.Sprintf("select=gte(pts\\,%d)", targetPts), "-frames", "1", "-f", "image2pipe", "-vcodec", "png", "-")
+			ffmpegCmd := exec.Command("ffmpeg", "-loglevel", "error", "-ss", fmt.Sprintf("%.03f", duration/5), "-i", imagePath, "-an", "-vf", "thumbnail", "-vframes", "1", "-f", "image2pipe", "-vcodec", "png", "-")
 			ffmpegCmd.Stderr = os.Stderr
 
 			pipe, err := ffmpegCmd.StdoutPipe()
