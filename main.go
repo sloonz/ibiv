@@ -80,6 +80,7 @@ func main() {
 	autoExitP := flag.Bool("auto-exit", true, "exit when browser tab is closed")
 	tokenP := flag.String("token", "", "authentication token")
 	listenAddrP := flag.StringP("listen", "l", "127.0.0.1:0", "listen addr")
+	browserP := flag.StringP("browser", "b", "xdg-open", "command to launch the browser")
 	flag.Parse()
 
 	useDefaults := *useDefaultsP
@@ -88,6 +89,7 @@ func main() {
 	autoExit := *autoExitP
 	token := *tokenP
 	listenAddr := *listenAddrP
+	browser := *browserP
 
 	images := make([]Image, 0, len(flag.Args()))
 	for _, filename := range flag.Args() {
@@ -302,9 +304,11 @@ func main() {
 	}
 
 	addr := fmt.Sprintf("http://%s/#token=%s", l.Addr(), token)
-	fmt.Printf("Serving application on %v\n", addr)
+	fmt.Fprintf(os.Stderr, "Serving application on %v\n", addr)
 	if autoLaunch {
-		cmdBrowser := exec.Command("xdg-open", addr)
+		cmdBrowser := exec.Command(browser, addr)
+		cmdBrowser.Stdout = os.Stdout
+		cmdBrowser.Stderr = os.Stderr
 		cmdBrowser.Start()
 		defer cmdBrowser.Wait()
 	}
