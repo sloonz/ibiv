@@ -58,8 +58,7 @@ class Tile extends React.Component<TileProps, TileState> {
         return <div key={idx} className="item" />;
       }
       else {
-        const im = this.preloadedImages[idx] ?? <img src={thumbUrl(idx)} />;
-        return <div key={idx} id={`t-${idx}`} className={cls({"item":true, "active": (activeRow == row && activeCol == col)})}>{im}</div>;
+        return <div key={idx} id={`t-${idx}`} className={cls({"item":true, "active": (activeRow == row && activeCol == col)})}><img src={thumbUrl(idx)} /></div>;
       }
     };
     this.preloadedImages = {};
