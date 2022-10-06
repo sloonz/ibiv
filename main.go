@@ -79,7 +79,7 @@ func main() {
 	autoLaunchP := flag.Bool("auto-launch", true, "start browser automatically")
 	autoExitP := flag.Bool("auto-exit", true, "exit when browser tab is closed")
 	tokenP := flag.String("token", "", "authentication token")
-	listenAddrP := flag.StringP("listen", "l", "127.0.0.1:0", "listen addws")
+	listenAddrP := flag.StringP("listen", "l", "127.0.0.1:0", "listen addr")
 	flag.Parse()
 
 	useDefaults := *useDefaultsP
