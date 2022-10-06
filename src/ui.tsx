@@ -2,6 +2,11 @@ import React from "react";
 import ReactDOM from "react-dom";
 import range from "lodash/range";
 
+interface ExecOptions {
+  ignoreStdout: boolean;
+  ignoreStdin: boolean;
+}
+
 interface ExecResult {
   exitCode: number;
   failed: boolean;
@@ -192,11 +197,11 @@ class Controller {
     }
   }
 
-  async shellExec(cmd: string | string[]): Promise<ExecResult> {
+  async shellExec(cmd: string | string[], opts?: Partial<ExecOptions>): Promise<ExecResult> {
     const res = await fetch("/exec", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cmd: Array.isArray(cmd) ? cmd : ["/bin/sh", "-c", cmd] }),
+      body: JSON.stringify({ cmd: Array.isArray(cmd) ? cmd : ["/bin/sh", "-c", cmd], ...(opts ?? {}) }),
     });
     return res.json();
   }

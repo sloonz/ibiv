@@ -251,7 +251,9 @@ func main() {
 
 	mux.Handle("/exec", checkToken(token, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		type ExecReq struct {
-			Cmd []string `json:"cmd"`
+			Cmd          []string `json:"cmd"`
+			IgnoreStdout bool     `json:"ignoreStdout"`
+			IgnoreStderr bool     `json:"ignoreStderr"`
 		}
 
 		type ExecRes struct {
@@ -272,21 +274,41 @@ func main() {
 			return
 		}
 
+		var stdout io.Writer
+		if args.IgnoreStdout {
+			stdout = os.Stdout
+		} else {
+			stdout = bytes.NewBuffer(nil)
+		}
+
+		var stderr io.Writer
+		if args.IgnoreStderr {
+			stderr = os.Stderr
+		} else {
+			stderr = bytes.NewBuffer(nil)
+		}
+
 		cmd := exec.Command(args.Cmd[0], args.Cmd[1:]...)
-		stdout := bytes.NewBuffer(nil)
-		stderr := bytes.NewBuffer(nil)
 		cmd.Stdout = stdout
 		cmd.Stderr = stderr
 		err = cmd.Run()
 
-		stderrData := stderr.String()
-		if err != nil && stderrData == "" {
-			stderrData = err.Error()
+		var stdoutData string
+		if !args.IgnoreStdout {
+			stdoutData = stdout.(*bytes.Buffer).String()
+		}
+
+		var stderrData string
+		if !args.IgnoreStderr {
+			stderrData = stderr.(*bytes.Buffer).String()
+			if err != nil && stderrData == "" {
+				stderrData = err.Error()
+			}
 		}
 
 		res := ExecRes{
 			ExitCode: cmd.ProcessState.ExitCode(),
-			Stdout:   stdout.String(),
+			Stdout:   stdoutData,
 			Stderr:   stderrData,
 			Failed:   err != nil,
 		}

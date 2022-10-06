@@ -45,11 +45,11 @@ ibiv.pageDown = v => {
   }
 }
 
-ibiv.shellStatus = async (v, cmd) => {
+ibiv.shellStatus = async (v, cmd, opts) => {
   const basename = v.activeItem.filename.match(/[^/]+$/)[0];
   const cmdString = Array.isArray(cmd) ? cmd.join(" ") : cmd;
   v.setStatus(`[${v.activeIndex+1}/${v.items.length}] ${basename}: executing ${cmdString}`);
-  const { failed, stdout, stderr } = await v.shellExec(cmd);
+  const { failed, stdout, stderr } = await v.shellExec(cmd, opts);
   const output = stderr ? stderr : stdout;
   if(failed) {
     v.setStatus(`[${v.activeIndex+1}/${v.items.length}] ${basename}: ${cmdString}: error: ${output}`);
