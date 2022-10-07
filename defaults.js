@@ -35,11 +35,11 @@ ibiv.pageUp = v => {
 }
 
 ibiv.pageDown = v => {
-  const idx = v.items.length - 1;
-  const maxFirstItem = idx - idx % v.cols - (v.rows - 1) * v.cols;
   const firstItem = v.firstItem + v.rows * v.cols;
-  if(firstItem > maxFirstItem) {
-    v.setActiveItem(idx);
+  const maxIdx = v.items.length - 1;
+  const maxFirstItem = maxIdx - (maxIdx % v.cols) - (v.rows - 1) * v.cols;
+  if(firstItem > maxFirstItem || firstItem + v.activeRow*v.cols + v.activeCol >= v.items.length) {
+    v.setActiveItem(maxIdx);
   } else {
     v.setActiveItem({ firstItem, activeRow: v.activeRow, activeCol: v.activeCol });
   }
