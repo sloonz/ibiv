@@ -24,6 +24,7 @@ interface TileProps {
   cols: number;
   rows: number;
   onSelectItem?: (index: number) => void;
+  onClickItem?: (index: number) => void;
 }
 
 interface TileState {
@@ -63,7 +64,7 @@ class Tile extends React.Component<TileProps, TileState> {
         return <div key={idx} className="item" />;
       }
       else {
-        return <div key={idx} id={`t-${idx}`} className={cls({"item":true, "active": (activeRow == row && activeCol == col)})}><img src={thumbUrl(idx)} /></div>;
+        return <div key={idx} onClick={() => this.props.onClickItem?.(idx)} id={`t-${idx}`} className={cls({"item":true, "active": (activeRow == row && activeCol == col)})}><img src={thumbUrl(idx)} /></div>;
       }
     };
     this.preloadedImages = {};
@@ -119,9 +120,7 @@ class Tile extends React.Component<TileProps, TileState> {
     }
 
     if(state.firstItem !== firstItem || state.activeRow !== activeRow || state.activeCol !== activeCol) {
-      this.setState(state, () => {
-        this.props.onSelectItem && this.props.onSelectItem(this.activeItem());
-      });
+      this.setState(state, () => this.props.onSelectItem?.(this.activeItem()));
     }
   }
 }
@@ -220,7 +219,7 @@ export default class UI extends React.Component<{}, UIState> {
   tileRef: React.RefObject<Tile>;
 
   ready: boolean;
-  handlers: {[event: string]: ((v: Controller) => any)[]};
+  handlers: {[event: string]: ((v: Controller, ...args: any[]) => any)[]};
   tileBindings: {[key: string]: (v: Controller) => any};
   imageBindings: {[key: string]: (v: Controller) => any};
 
@@ -260,8 +259,12 @@ export default class UI extends React.Component<{}, UIState> {
     });
   }
 
-  doSelectItem(item: number) {
-    this.setState({ selectedItem: item }, () => this.runHandlers("select-item"));
+  doClickItem = (item: number) => {
+    this.runHandlers("click-item", [item]);
+  }
+
+  doSelectItem = (item: number) => {
+    this.setState({ selectedItem: item }, () => this.runHandlers("select-item", [item]));
   }
 
   createController(): Controller | null {
@@ -273,11 +276,11 @@ export default class UI extends React.Component<{}, UIState> {
     }
   }
 
-  runHandlers(event: string): Promise<any> {
+  runHandlers(event: string, args?: any[]): Promise<any> {
     const controller = this.createController();
     if(this.handlers[event] && controller) {
       this.ready = false;
-      return Promise.all(this.handlers[event].map(h => Promise.resolve(h(controller)))).
+      return Promise.all(this.handlers[event].map(h => Promise.resolve(h.apply(null, [controller, ...(args ?? [])])))).
         catch(err => {
           console.error({ err });
           this.setState({ status: err.toString() });
@@ -354,9 +357,10 @@ export default class UI extends React.Component<{}, UIState> {
             items={this.state.items}
             cols={Math.floor(this.state.width / 138)}
             rows={Math.floor((this.state.height-20)/138)}
-            onSelectItem={this.doSelectItem.bind(this)} />
+            onSelectItem={this.doSelectItem}
+            onClickItem={this.doClickItem} />
         </div>}
-        {this.state.imageView && items && <div id="image-view">
+        {this.state.imageView && items && <div id="image-view" onClick={() => this.runHandlers("click-image")}>
           { isVideo ? <video loop controls autoPlay key={selectedItem}><source src={itemUrl} type={itemType} /></video> : <img key={selectedItem} src={itemUrl} /> }
         </div>}
         </div>

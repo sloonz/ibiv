@@ -62,6 +62,8 @@ ibiv.shellStatus = async (v, cmd, opts) => {
 
 on("load", v => v.items.length > 1 ? v.tileView() : v.imageView());
 on("select-item", v => v.setStatus(`[${v.activeIndex+1}/${v.items.length}] ${v.activeItem.filename}`));
+on("click-item", (v, idx) => idx === v.activeIndex ? v.imageView() : v.setActiveItem(idx));
+on("click-image", v => v.tileView());
 
 bindTileView("ArrowUp", v => v.setActiveItem(v.activeIndex - v.cols));
 bindTileView("ArrowDown", v => v.setActiveItem(v.activeIndex + v.cols));
