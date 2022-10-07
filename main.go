@@ -13,6 +13,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path"
@@ -74,6 +75,8 @@ func checkToken(token string, h http.Handler) http.Handler {
 }
 
 func main() {
+	var err error
+
 	useDefaultsP := flag.Bool("defaults", true, "use default configuration")
 	configFilesP := flag.StringArrayP("config", "c", nil, "configuration files")
 	autoLaunchP := flag.Bool("auto-launch", true, "start browser automatically")
@@ -159,7 +162,7 @@ func main() {
 	mux.Handle("/exit", checkToken(token, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(200)
 		if autoExit {
-			os.Exit(0)
+			srv.Close()
 		}
 	})))
 
@@ -320,12 +323,34 @@ func main() {
 		return assetsFS.Open(path.Join("build", name))
 	}))))
 
-	l, err := net.Listen("tcp", listenAddr)
-	if err != nil {
-		log.Fatal(err)
+	var l net.Listener
+	if strings.HasPrefix(listenAddr, "unix:") {
+		socketPath := strings.TrimPrefix(listenAddr, "unix:")
+		st, err := os.Stat(socketPath)
+		if err != nil && !os.IsNotExist(err) {
+			log.Fatal(err)
+		}
+		if err == nil && !st.Mode().IsDir() && !st.Mode().IsRegular() {
+			os.Remove(socketPath)
+		}
+		l, err = net.Listen("unix", socketPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer os.Remove(socketPath)
+	} else {
+		l, err = net.Listen("tcp", listenAddr)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	addr := fmt.Sprintf("http://%s/#token=%s", l.Addr(), token)
+	listenHost := l.Addr().String()
+	if l.Addr().Network() == "unix" {
+		listenHost = url.QueryEscape(listenHost)
+	}
+
+	addr := fmt.Sprintf("http://%s/#token=%s", listenHost, token)
 	fmt.Fprintf(os.Stderr, "Serving application on %v\n", addr)
 	if autoLaunch {
 		cmdBrowser := exec.Command(browser, addr)
@@ -335,7 +360,7 @@ func main() {
 		defer cmdBrowser.Wait()
 	}
 	err = srv.Serve(l)
-	if err != nil {
+	if err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
 }
