@@ -20,6 +20,7 @@ interface Item {
 }
 
 interface TileProps {
+  randomHash: string;
   items: Item[];
   cols: number;
   rows: number;
@@ -53,7 +54,7 @@ class Tile extends React.Component<TileProps, TileState> {
   render() {
     const { cols, rows, items } = this.props;
     const { firstItem, activeCol, activeRow } = this.state;
-    const thumbUrl = (idx: number) => `/thumbnails/${idx}`;
+    const thumbUrl = (idx: number) => `/thumbnails/${idx}?${this.props.randomHash}`;
     const makeRow = (row: number) => {
       const id = `r-${firstItem+row*cols}-to-${firstItem+(row+1)*cols-1}`;
       return <div key={id} id={id} className="row">{range(cols).map(col => makeItem(row, col))}</div>;
@@ -206,6 +207,11 @@ class Controller {
   }
 }
 
+interface UIProps {
+  token: string | null;
+  randomHash: string;
+}
+
 interface UIState {
   items: Item[];
   width: number;
@@ -215,7 +221,7 @@ interface UIState {
   status: string;
 }
 
-export default class UI extends React.Component<{}, UIState> {
+export default class UI extends React.Component<UIProps, UIState> {
   tileRef: React.RefObject<Tile>;
 
   ready: boolean;
@@ -223,7 +229,7 @@ export default class UI extends React.Component<{}, UIState> {
   tileBindings: {[key: string]: (v: Controller) => any};
   imageBindings: {[key: string]: (v: Controller) => any};
 
-  constructor(props: {}) {
+  constructor(props: UIProps) {
     super(props);
 
     this.tileRef = React.createRef();
@@ -319,16 +325,6 @@ export default class UI extends React.Component<{}, UIState> {
   }
 
   componentDidMount() {
-    if(document.location.hash.slice(1)) {
-      for(const elem of document.location.hash.slice(1).split("&")) {
-        const idx = elem.indexOf("=");
-        if(idx !== -1 && elem.slice(0, idx) == "token") {
-          const token = elem.slice(idx + 1);
-          document.cookie = `token=${token}`;
-        }
-      }
-    }
-
     Promise.all([
       fetch('/images').then(r => r.json()),
       fetch('/configs').then(r => r.json())
@@ -348,12 +344,13 @@ export default class UI extends React.Component<{}, UIState> {
   render() {
     const { items, selectedItem } = this.state;
     const itemType = items[selectedItem]?.type;
-    const itemUrl = `/images/${selectedItem}`;
+    const itemUrl = `/images/${selectedItem}?${this.props.randomHash}`;
     const isVideo = itemType && !!itemType.match(/^video\//);
     return <div style={{height: "100%"}}>
       <div style={{height: this.state.height-20}} id="main-view">
         {this.state.items && <div>
           <Tile ref={this.tileRef}
+            randomHash={this.props.randomHash}
             items={this.state.items}
             cols={Math.floor(this.state.width / 138)}
             rows={Math.floor((this.state.height-20)/138)}
@@ -369,4 +366,16 @@ export default class UI extends React.Component<{}, UIState> {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => ReactDOM.render(<UI/>, document.querySelector("#app")));
+let token: string | null = null;
+if(document.location.hash.slice(1)) {
+  for(const elem of document.location.hash.slice(1).split("&")) {
+    const idx = elem.indexOf("=");
+    if(idx !== -1 && elem.slice(0, idx) == "token") {
+      token = elem.slice(idx + 1);
+      document.cookie = `token=${token}`;
+    }
+  }
+}
+
+const randomHash = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, "0")).join("");
+document.addEventListener("DOMContentLoaded", () => ReactDOM.render(<UI token={token} randomHash={randomHash} />, document.querySelector("#app")));
