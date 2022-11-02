@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	flag "github.com/spf13/pflag"
+	"golang.org/x/sync/semaphore"
 	"io"
 	"io/fs"
 	"log"
@@ -96,6 +97,8 @@ func main() {
 	token := *tokenP
 	listenAddr := *listenAddrP
 	browser := *browserP
+
+	thumbsSem := semaphore.NewWeighted(4)
 
 	images := make([]Image, 0, len(flag.Args()))
 	for _, filename := range flag.Args() {
@@ -207,6 +210,12 @@ func main() {
 		if writeError(w, err) {
 			return
 		}
+
+		err = thumbsSem.Acquire(req.Context(), 1)
+		if writeError(w, err) {
+			return
+		}
+		defer thumbsSem.Release(1)
 
 		var magickInput io.Reader
 		magickInputFile := "-"
