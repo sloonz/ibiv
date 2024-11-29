@@ -211,6 +211,13 @@ func main() {
 			return
 		}
 
+		imageDir, imageFile := filepath.Split(imagePath)
+		thumbPath := path.Join(imageDir, "." + imageFile + ".thumb")
+		if _, err := os.Stat(thumbPath); err == nil {
+			http.ServeFile(w, req, thumbPath)
+			return
+		}
+
 		err = thumbsSem.Acquire(req.Context(), 1)
 		if writeError(w, err) {
 			return
