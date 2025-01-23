@@ -1,5 +1,5 @@
 import React from "react";
-import ReactDOM from "react-dom";
+import {createRoot} from "react-dom/client";
 import range from "lodash/range";
 
 interface ExecOptions {
@@ -222,7 +222,7 @@ interface UIState {
 }
 
 export default class UI extends React.Component<UIProps, UIState> {
-  tileRef: React.RefObject<Tile>;
+  tileRef: React.RefObject<Tile | null>;
 
   ready: boolean;
   handlers: {[event: string]: ((v: Controller, ...args: any[]) => any)[]};
@@ -378,4 +378,4 @@ if(document.location.hash.slice(1)) {
 }
 
 const randomHash = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, "0")).join("");
-document.addEventListener("DOMContentLoaded", () => ReactDOM.render(<UI token={token} randomHash={randomHash} />, document.querySelector("#app")));
+document.addEventListener("DOMContentLoaded", () => createRoot(document.querySelector("#app")!).render(<UI token={token} randomHash={randomHash} />));
