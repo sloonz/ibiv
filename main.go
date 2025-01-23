@@ -1,14 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	flag "github.com/spf13/pflag"
-	"golang.org/x/sync/semaphore"
 	"io"
 	"io/fs"
 	"log"
@@ -23,6 +22,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	flag "github.com/spf13/pflag"
+	"golang.org/x/sync/semaphore"
 )
 
 //go:embed defaults.js
@@ -32,8 +34,11 @@ var defaultConfig string
 var assetsFS embed.FS
 
 type Image struct {
-	Filename string `json:"filename"`
-	Type     string `json:"type"`
+	Name              string `json:"name"`
+	Location          string `json:"location"`
+	ThumbnailLocation string `json:"thumbnailLocation"`
+	IsAnimated        bool   `json:"isAnimated"`
+	IsVideo           bool   `json:"isVideo"`
 }
 
 type fsFunc func(name string) (fs.File, error)
@@ -77,6 +82,106 @@ func checkToken(token string, h http.Handler) http.Handler {
 	})
 }
 
+func imagesFromJSON(jsonPath string) ([]Image, error) {
+	var images []Image
+
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return images, fmt.Errorf("cannot read JSON file: %v", err)
+	}
+
+	err = json.Unmarshal(data, &images)
+	if err == nil {
+		return images, nil
+	}
+
+	images = make([]Image, 0)
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	lineNum := 0
+
+	for scanner.Scan() {
+		lineNum++
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		var img Image
+		if err := json.Unmarshal([]byte(line), &img); err != nil {
+			return nil, fmt.Errorf("error parsing JSON at line %d: %v", lineNum, err)
+		}
+		images = append(images, img)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading JSON lines: %v", err)
+	}
+
+	if len(images) == 0 {
+		return nil, fmt.Errorf("no valid JSON images found in file")
+	}
+
+	return images, nil
+}
+
+func imagesFromPath(filename string) ([]Image, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("cannot open %s: %v", filename, err)
+	}
+	defer f.Close()
+
+	hdr := make([]byte, 512)
+	n, err := io.ReadAtLeast(f, hdr, len(hdr))
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return nil, fmt.Errorf("cannot read %s header: %v", filename, err)
+	}
+
+	if hdr[0] == '{' || hdr[0] == '[' {
+		images, err := imagesFromJSON(filename)
+		if err == nil {
+			return images, nil
+		}
+		log.Printf("W: Failed attempt to load %s as JSON: %v", err)
+	}
+
+	typ := http.DetectContentType(hdr[:n])
+	if typ == "application/octet-stream" && bytes.Compare(hdr[4:8], []byte("ftyp")) == 0 {
+		// Most likely video/mp4 but unfortunately the spec (exactly implemented by DetectContentType)
+		// is more strict in what it considers video/mp4 than what most browsers do, and there’s a decent
+		// chunk of mp4 videos detected by the browsers but not by DetectContentType out there.
+		//
+		// The standard says that video/mp4 is only allowed if the brand is "mp4", but Firefox accepts way more brands:
+		// https://github.com/mozilla/gecko-dev/blob/master/toolkit/components/mediasniffer/nsMediaSniffer.cpp
+		//
+		// For Chrome, any MPEG-4 ISO Base Media file is video/mp4 and ignores the brand altogether:
+		// https://github.com/chromium/chromium/blob/master/net/base/mime_sniffer.cc
+		typ = "video/mp4"
+	}
+
+	isVideo := strings.HasPrefix(typ, "video/")
+	isAnimated := strings.HasPrefix(typ, "video/") || typ == "image/gif"
+
+	imageDir, imageFile := filepath.Split(filename)
+	thumbPath := path.Join(imageDir, "."+imageFile+".thumb")
+	if _, err := os.Stat(thumbPath); err == nil {
+		return []Image{{
+			Name:              filename,
+			Location:          filename,
+			ThumbnailLocation: thumbPath,
+			IsVideo:           isVideo,
+			IsAnimated:        isAnimated,
+		}}, nil
+	} else {
+		return []Image{{
+			Name:       filename,
+			Location:   filename,
+			IsVideo:    isVideo,
+			IsAnimated: isAnimated,
+		}}, nil
+	}
+}
+
 func main() {
 	var err error
 
@@ -100,40 +205,6 @@ func main() {
 
 	thumbsSem := semaphore.NewWeighted(4)
 
-	images := make([]Image, 0, len(flag.Args()))
-	for _, filename := range flag.Args() {
-		f, err := os.Open(filename)
-		if err != nil {
-			log.Fatalf("cannot open %s: %v", filename, err)
-		}
-		defer f.Close()
-
-		hdr := make([]byte, 512)
-		n, err := io.ReadAtLeast(f, hdr, len(hdr))
-		if err != nil && err != io.ErrUnexpectedEOF {
-			log.Fatalf("cannot read %s header: %v", filename, err)
-		}
-
-		typ := http.DetectContentType(hdr[:n])
-		if typ == "application/octet-stream" && bytes.Compare(hdr[4:8], []byte("ftyp")) == 0 {
-			// Most likely video/mp4 but unfortunately the spec (exactly implemented by DetectContentType)
-			// is more strict in what it considers video/mp4 than what most browsers do, and there’s a decent
-			// chunk of mp4 videos detected by the browsers but not by DetectContentType out there.
-			//
-			// The standard says that video/mp4 is only allowed if the brand is "mp4", but Firefox accepts way more brands:
-			// https://github.com/mozilla/gecko-dev/blob/master/toolkit/components/mediasniffer/nsMediaSniffer.cpp
-			//
-			// For Chrome, any MPEG-4 ISO Base Media file is video/mp4 and ignores the brand altogether:
-			// https://github.com/chromium/chromium/blob/master/net/base/mime_sniffer.cc
-			typ = "video/mp4"
-		}
-
-		images = append(images, Image{
-			Filename: filename,
-			Type:     typ,
-		})
-	}
-
 	if token == "" {
 		bToken := make([]byte, 16)
 		_, err := rand.Read(bToken)
@@ -141,6 +212,15 @@ func main() {
 			log.Fatalf("cannot generate token: %v", err)
 		}
 		token = hex.EncodeToString(bToken)
+	}
+
+	var images []Image
+	for _, arg := range flag.Args() {
+		argImages, err := imagesFromPath(arg)
+		if err != nil {
+			log.Fatalf("Failed to load %s: %v", arg, err)
+		}
+		images = append(images, argImages...)
 	}
 
 	configs := make([]string, len(configFiles)+1)
@@ -187,7 +267,7 @@ func main() {
 			return
 		}
 
-		imagePath, err := filepath.Abs(images[idx].Filename)
+		imagePath, err := filepath.Abs(images[idx].Location)
 		if writeError(w, err) {
 			return
 		}
@@ -206,15 +286,17 @@ func main() {
 			return
 		}
 
-		imagePath, err := filepath.Abs(images[idx].Filename)
-		if writeError(w, err) {
+		if images[idx].ThumbnailLocation != "" {
+			thumbPath, err := filepath.Abs(images[idx].ThumbnailLocation)
+			if writeError(w, err) {
+				return
+			}
+			http.ServeFile(w, req, thumbPath)
 			return
 		}
 
-		imageDir, imageFile := filepath.Split(imagePath)
-		thumbPath := path.Join(imageDir, "." + imageFile + ".thumb")
-		if _, err := os.Stat(thumbPath); err == nil {
-			http.ServeFile(w, req, thumbPath)
+		imagePath, err := filepath.Abs(images[idx].Location)
+		if writeError(w, err) {
 			return
 		}
 
@@ -226,7 +308,7 @@ func main() {
 
 		var magickInput io.Reader
 		magickInputFile := "-"
-		if strings.HasPrefix(images[idx].Type, "video/") || images[idx].Type == "image/gif" {
+		if images[idx].IsAnimated {
 			probeCmd := exec.Command("ffprobe", "-loglevel", "error", "-skip_frame", "nokey", "-select_streams", "v:0", "-show_entries", "packet=pts,flags", "-of", "csv=p=0", imagePath)
 			probeCmd.Stderr = os.Stderr
 			out, err := probeCmd.Output()

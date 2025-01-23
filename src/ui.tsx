@@ -15,8 +15,11 @@ interface ExecResult {
 }
 
 interface Item {
-  filename: string;
-  type: string;
+  name: string;
+  isAnimated: boolean;
+  isVideo: boolean;
+  location: string;
+  thumbnailLocation: string;
 }
 
 interface TileProps {
@@ -54,7 +57,7 @@ class Tile extends React.Component<TileProps, TileState> {
   render() {
     const { cols, rows, items } = this.props;
     const { firstItem, activeCol, activeRow } = this.state;
-    const thumbUrl = (idx: number) => `/thumbnails/${idx}?${this.props.randomHash}`;
+    const thumbUrl = (idx: number) => items[idx].thumbnailLocation.startsWith("https://") ? items[idx].thumbnailLocation : `/thumbnails/${idx}?${this.props.randomHash}`;
     const makeRow = (row: number) => {
       const id = `r-${firstItem+row*cols}-to-${firstItem+(row+1)*cols-1}`;
       return <div key={id} id={id} className="row">{range(cols).map(col => makeItem(row, col))}</div>;
@@ -343,9 +346,8 @@ export default class UI extends React.Component<UIProps, UIState> {
 
   render() {
     const { items, selectedItem } = this.state;
-    const itemType = items[selectedItem]?.type;
-    const itemUrl = `/images/${selectedItem}?${this.props.randomHash}`;
-    const isVideo = itemType && !!itemType.match(/^video\//);
+    const item = items[selectedItem];
+    const itemUrl = item?.location.startsWith("https://") ? item?.location : `/images/${selectedItem}?${this.props.randomHash}`;
     return <div style={{height: "100%"}}>
       <div style={{height: this.state.height-20}} id="main-view">
         {this.state.items && <div>
@@ -358,7 +360,7 @@ export default class UI extends React.Component<UIProps, UIState> {
             onClickItem={this.doClickItem} />
         </div>}
         {this.state.imageView && items && <div id="image-view" onClick={() => this.runHandlers("click-image")}>
-          { isVideo ? <video loop controls autoPlay key={selectedItem}><source src={itemUrl} type={itemType} /></video> : <img key={selectedItem} src={itemUrl} /> }
+          { item?.isVideo ? <video loop controls autoPlay key={selectedItem}><source src={itemUrl} /></video> : <img key={selectedItem} src={itemUrl} /> }
         </div>}
         </div>
       <div id="statusbar">{this.state.status}</div>

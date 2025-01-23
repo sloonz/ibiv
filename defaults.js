@@ -46,7 +46,7 @@ ibiv.pageDown = v => {
 }
 
 ibiv.shellStatus = async (v, cmd, opts) => {
-  const basename = v.activeItem.filename.match(/[^/]+$/)[0];
+  const basename = v.activeItem.name;
   const cmdString = Array.isArray(cmd) ? cmd.join(" ") : cmd;
   v.setStatus(`[${v.activeIndex+1}/${v.items.length}] ${basename}: executing ${cmdString}`);
   const { failed, stdout, stderr } = await v.shellExec(cmd, opts);
@@ -61,7 +61,7 @@ ibiv.shellStatus = async (v, cmd, opts) => {
 }
 
 on("load", v => v.items.length > 1 ? v.tileView() : v.imageView());
-on("select-item", v => v.setStatus(`[${v.activeIndex+1}/${v.items.length}] ${v.activeItem.filename}`));
+on("select-item", v => v.setStatus(`[${v.activeIndex+1}/${v.items.length}] ${v.activeItem.name}`));
 on("click-item", (v, idx) => idx === v.activeIndex ? v.imageView() : v.setActiveItem(idx));
 on("click-image", v => v.tileView());
 
@@ -82,5 +82,5 @@ bindImageView(["q", "m", "Enter"], v => v.tileView());
 bind("f", v => v.fullscreen(!v.isFullscreen));
 
 // Example:
-//   bind("1", v => ibiv.shellStatus(v, ["add-tag", v.activeItem.filename, "not-edited"]))
-//   bind("2", v => ibiv.shellStatus(v, ["rm", "-f", v.activeItem.filename]))
+//   bind("1", v => ibiv.shellStatus(v, ["add-tag", v.activeItem.location, "not-edited"]))
+//   bind("2", v => ibiv.shellStatus(v, ["rm", "-f", v.activeItem.location]))
