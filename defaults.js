@@ -48,15 +48,15 @@ ibiv.pageDown = v => {
 ibiv.shellStatus = async (v, cmd, opts) => {
   const basename = v.activeItem.name;
   const cmdString = Array.isArray(cmd) ? cmd.join(" ") : cmd;
-  v.setStatus(`[${v.activeIndex+1}/${v.items.length}] ${basename}: executing ${cmdString}`);
+  v.setStatus(`[${v.activeIndex+1}/${v.items.length} ⏳] ${basename}: executing ${cmdString}`);
   const { failed, stdout, stderr } = await v.shellExec(cmd, opts);
   const output = stderr ? stderr : stdout;
   if(failed) {
-    v.setStatus(`[${v.activeIndex+1}/${v.items.length}] ${basename}: ${cmdString}: error: ${output}`);
+    v.setStatus(`[${v.activeIndex+1}/${v.items.length} ❌] ${basename}: ${cmdString}: error: ${output}`);
   } else if(output) {
-    v.setStatus(`[${v.activeIndex+1}/${v.items.length}] ${basename}: ${cmdString}: success: ${output}`);
+    v.setStatus(`[${v.activeIndex+1}/${v.items.length} ✅] ${basename}: ${cmdString}: success: ${output}`);
   } else {
-    v.setStatus(`[${v.activeIndex+1}/${v.items.length}] ${basename}: ${cmdString}: success`);
+    v.setStatus(`[${v.activeIndex+1}/${v.items.length} ✅] ${basename}: ${cmdString}: success`);
   }
 }
 
